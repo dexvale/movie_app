@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../state/app_state.dart';
+import '../services/api_service.dart';
 
 class HomeDashboard extends StatelessWidget {
   final AppState state;
@@ -105,34 +106,56 @@ class HomeDashboard extends StatelessWidget {
   }
 
   Widget _buildHeroBanner(BuildContext context) {
+    final heroMovie = state.movies.isNotEmpty ? state.movies.first : state.selectedMovie;
+    final String? backdrop = heroMovie.backdropPath;
+
     return Container(
       height: 480,
       width: double.infinity,
       child: Stack(
         children: [
-          // Cyberpunk Spires Background
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Color(0xFF0B0C10),
-                    Color(0xFF140D1F),
-                    Color(0xFF09142A),
-                  ],
+          // Backdrop Image or Gradient
+          if (backdrop != null)
+            Positioned.fill(
+              child: Image.network(
+                '${ApiService.imageBaseUrlUrlOriginal}$backdrop',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Color(0xFF0B0C10), Color(0xFF140D1F)],
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            // Cyberpunk Spires Background
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Color(0xFF0B0C10),
+                      Color(0xFF140D1F),
+                      Color(0xFF09142A),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          
-          // Spires Drawing (Procedural shapes/grids)
-          Positioned.fill(
-            child: CustomPaint(
-              painter: SpiresPainter(),
+            
+            // Spires Drawing (Procedural shapes/grids)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: SpiresPainter(),
+              ),
             ),
-          ),
+          ],
 
           // Bottom Vignette Gradient
           Positioned.fill(
@@ -187,9 +210,9 @@ class HomeDashboard extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Icon(Icons.star, color: Color(0xFFFFC107), size: 12),
                     const SizedBox(width: 4),
-                    const Text(
-                      '9.4',
-                      style: TextStyle(
+                    Text(
+                      '${heroMovie.rating}',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -200,9 +223,9 @@ class HomeDashboard extends StatelessWidget {
                 const SizedBox(height: 10),
                 
                 // Title
-                const Text(
-                  'AETHERIA',
-                  style: TextStyle(
+                Text(
+                  heroMovie.title,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 42,
                     fontWeight: FontWeight.w900,
@@ -213,7 +236,7 @@ class HomeDashboard extends StatelessWidget {
                 
                 // Synopsis snippet
                 Text(
-                  'In a world where consciousness is digital, one ghost in the machine will reclaim what it means to be human. A visually stunning journey through the neon-drenched depths of Sector 7.',
+                  heroMovie.synopsis,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
                     fontSize: 12,
@@ -231,7 +254,7 @@ class HomeDashboard extends StatelessWidget {
                     Expanded(
                       child: InkWell(
                         onTap: () {
-                          state.selectMovie('aetheria');
+                          state.selectMovie(heroMovie.id);
                           onNavigateToDetails();
                         },
                         child: Container(
@@ -270,7 +293,7 @@ class HomeDashboard extends StatelessWidget {
                     // Watchlist circle button
                     InkWell(
                       onTap: () {
-                        state.toggleWatchlist('aetheria');
+                        state.toggleWatchlist(heroMovie.id);
                       },
                       child: Container(
                         width: 48,
@@ -279,17 +302,17 @@ class HomeDashboard extends StatelessWidget {
                           color: const Color(0xFF1F2229),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: state.selectedMovie.id == 'aetheria' && state.selectedMovie.isInWatchlist
+                            color: state.selectedMovie.id == heroMovie.id && heroMovie.isInWatchlist
                                 ? const Color(0xFFE50914)
                                 : Colors.white.withOpacity(0.1),
                             width: 1,
                           ),
                         ),
                         child: Icon(
-                          state.movies.firstWhere((m) => m.id == 'aetheria').isInWatchlist
+                          state.movies.firstWhere((m) => m.id == heroMovie.id).isInWatchlist
                               ? Icons.check
                               : Icons.add,
-                          color: state.movies.firstWhere((m) => m.id == 'aetheria').isInWatchlist
+                          color: state.movies.firstWhere((m) => m.id == heroMovie.id).isInWatchlist
                               ? const Color(0xFFE50914)
                               : Colors.white,
                           size: 20,
@@ -335,8 +358,15 @@ class HomeDashboard extends StatelessWidget {
   }
 
   Widget _buildPopularCarousel() {
-    // Show Obsidian Sky & The Silent Echo
-    final popular = state.movies.where((m) => m.id == 'obsidian_sky' || m.id == 'silent_echo').toList();
+    // Show Obsidian Sky & The Silent Echo + TMDB movies if populated!
+    final popular = state.movies.where((m) {
+      if (state.movies.length <= 13) return m.id == 'obsidian_sky' || m.id == 'silent_echo';
+      // If TMDB active, skip local mockups
+      return m.id != 'aetheria' && m.id != 'obsidian_sky' && m.id != 'silent_echo' && 
+             m.id != 'neon_genesis' && m.id != 'midnight_blues' && m.id != 'shadow_protocol' &&
+             m.id != 'crimson_horizon' && m.id != 'vantablack' && m.id != 'neon_pulse' &&
+             m.id != 'the_beacon' && m.id != 'last_cipher' && m.id != 'neo_tokyo' && m.id != 'void_walker';
+    }).toList();
     
     return Container(
       height: 260,
@@ -364,21 +394,41 @@ class HomeDashboard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       child: Stack(
                         children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: movie.posterColors,
+                          if (movie.posterPath != null)
+                            Positioned.fill(
+                              child: Image.network(
+                                '${ApiService.imageBaseUrlUrl500}${movie.posterPath}',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: movie.posterColors,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: movie.posterColors,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
                           // Cyberpunk silhouette details
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: PosterDetailPainter(movie.id),
+                          if (movie.posterPath == null)
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: PosterDetailPainter(movie.id),
+                              ),
                             ),
-                          ),
                           // Rating overlay
                           Positioned(
                             top: 8,
@@ -438,7 +488,7 @@ class HomeDashboard extends StatelessWidget {
   }
 
   Widget _buildRecentlyAddedCarousel() {
-    // Show Neon Genesis & Midnight Blues
+    // Show Neon Genesis & Midnight Blues (keep them static for watching progress demo)
     final recently = state.movies.where((m) => m.id == 'neon_genesis' || m.id == 'midnight_blues').toList();
 
     return Container(
@@ -467,20 +517,40 @@ class HomeDashboard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       child: Stack(
                         children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: movie.posterColors,
+                          if (movie.posterPath != null)
+                            Positioned.fill(
+                              child: Image.network(
+                                '${ApiService.imageBaseUrlUrl500}${movie.posterPath}',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: movie.posterColors,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: movie.posterColors,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: PosterDetailPainter(movie.id),
+                          if (movie.posterPath == null)
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: PosterDetailPainter(movie.id),
+                              ),
                             ),
-                          ),
                           // Watching Progress bar
                           Positioned(
                             bottom: 0,

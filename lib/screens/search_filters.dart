@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../state/app_state.dart';
+import '../services/api_service.dart';
 
 class SearchFilters extends StatefulWidget {
   final AppState state;
@@ -254,24 +255,42 @@ class _SearchFiltersState extends State<SearchFilters> {
           child: Stack(
             children: [
               // Dynamic gradients representing poster
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: movie.posterColors,
+              if (movie.posterPath != null)
+                Positioned.fill(
+                  child: Image.network(
+                    '${ApiService.imageBaseUrlUrl500}${movie.posterPath}',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: movie.posterColors,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: movie.posterColors,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // Poster details custom painter
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: GridPosterPainter(movie.id),
+              // Poster details custom painter (only if posterPath is null)
+              if (movie.posterPath == null)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: GridPosterPainter(movie.id),
+                  ),
                 ),
-              ),
 
               // Dark shadow overlay at bottom for text readability
               Positioned.fill(

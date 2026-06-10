@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/movie.dart';
+import '../services/api_service.dart';
 
 class AppState extends ChangeNotifier {
+  final ApiService _apiService = ApiService();
+
   // Navigation for the virtual simulation
   int _activeNavBarIndex = 0;
   int get activeNavBarIndex => _activeNavBarIndex;
@@ -20,6 +23,15 @@ class AppState extends ChangeNotifier {
     _focusedScreenIndex = index;
     notifyListeners();
   }
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  List<CastMember> _activeCast = [];
+  List<CastMember> get activeCast => _activeCast.isEmpty ? cast : _activeCast;
+
+  List<Movie> _recommendations = [];
+  List<Movie> get recommendations => _recommendations;
 
   // List of movies
   final List<Movie> _movies = [
@@ -178,18 +190,61 @@ class AppState extends ChangeNotifier {
   
   Movie get selectedMovie => _movies.firstWhere((m) => m.id == _selectedMovieId, orElse: () => _movies.first);
 
-  void selectMovie(String id) {
+  Future<void> selectMovie(String id) async {
     _selectedMovieId = id;
     notifyListeners();
+
+    if (ApiService.apiKey.isEmpty && ApiService.readAccessToken.isEmpty) return;
+
+    final bool isTmdbId = int.tryParse(id) != null;
+    if (isTmdbId) {
+      try {
+        final fetchedCast = await _apiService.fetchCastMembers(id);
+        if (fetchedCast.isNotEmpty) {
+          _activeCast = fetchedCast;
+        }
+
+        final fetchedRecs = await _apiService.fetchRecommendations(id);
+        if (fetchedRecs.isNotEmpty) {
+          _recommendations = fetchedRecs;
+        }
+        notifyListeners();
+      } catch (e) {
+        debugPrint('Error loading movie details from TMDB: $e');
+      }
+    } else {
+      // Reset recommendations / cast to static ones for mock files
+      _activeCast = [];
+      _recommendations = [];
+      notifyListeners();
+    }
   }
 
   // Search and Genre filters
   String _searchQuery = '';
   String get searchQuery => _searchQuery;
 
-  void updateSearchQuery(String query) {
+  Future<void> updateSearchQuery(String query) async {
     _searchQuery = query;
     notifyListeners();
+
+    if (query.trim().isEmpty) return;
+    if (ApiService.apiKey.isEmpty && ApiService.readAccessToken.isEmpty) return;
+
+    try {
+      final searchResults = await _apiService.searchMovies(query);
+      if (searchResults.isNotEmpty) {
+        for (var movie in searchResults) {
+          final existingIdx = _movies.indexWhere((m) => m.id == movie.id);
+          if (existingIdx == -1) {
+            _movies.add(movie);
+          }
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error searching TMDB: $e');
+    }
   }
 
   String _activeGenreChip = 'All Genres';
@@ -209,9 +264,8 @@ class AppState extends ChangeNotifier {
   int get watchedCount => _watchedCount;
 
   int get watchlistCount {
-    // Counts all items marked as isInWatchlist, plus 40 baseline to reach 42 if 'aetheria' is in watchlist (which matches Screen 4 screenshot)
     int count = _movies.where((m) => m.isInWatchlist).length;
-    return count + 40; // baseline to make it look exactly like Screen 4 widget ("42")
+    return count + 40; 
   }
 
   void updateUsername(String name) {
@@ -247,6 +301,54 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     });
+
+    // Load initial TMDB data if key exists
+    loadTMDBData();
+  }
+
+  Future<void> loadTMDBData() async {
+    if (ApiService.apiKey.isEmpty && ApiService.readAccessToken.isEmpty) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 1. Fetch Hero Movie
+      final hero = await _apiService.fetchHeroMovie();
+      if (hero != null) {
+        final idx = _movies.indexWhere((m) => m.id == 'aetheria' || m.id == hero.id);
+        if (idx != -1) {
+          _movies[idx] = hero.copyWith(
+            isInWatchlist: _movies[idx].isInWatchlist,
+            downloadState: _movies[idx].downloadState,
+          );
+        } else {
+          _movies.insert(0, hero);
+        }
+        _selectedMovieId = hero.id;
+      }
+
+      // 2. Fetch Popular Movies
+      final popularList = await _apiService.fetchPopularMovies();
+      if (popularList.isNotEmpty) {
+        for (var movie in popularList) {
+          final existingIdx = _movies.indexWhere((m) => m.id == movie.id);
+          if (existingIdx == -1) {
+            _movies.add(movie);
+          } else {
+            _movies[existingIdx] = movie.copyWith(
+              isInWatchlist: _movies[existingIdx].isInWatchlist,
+              downloadState: _movies[existingIdx].downloadState,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading TMDB data: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   @override
@@ -280,14 +382,12 @@ class AppState extends ChangeNotifier {
           downloadSize: '',
         );
       } else if (movie.downloadState == DownloadState.downloaded) {
-        // Option to delete
         _movies[idx] = movie.copyWith(
           downloadState: DownloadState.notDownloaded,
           downloadProgress: 0.0,
           downloadSize: '',
         );
       } else if (movie.downloadState == DownloadState.expired) {
-        // Renew
         _movies[idx] = movie.copyWith(
           downloadState: DownloadState.downloading,
           downloadProgress: 0.0,
@@ -298,14 +398,11 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // Storage Used calculations
   double get storageUsedGb {
-    // Base 42.5 GB + any newly completed downloaded movie
     double base = 42.5;
     return base;
   }
 
-  // Cast members for Detail Screen (circular avatar widget helper)
   final List<CastMember> cast = const [
     CastMember(name: 'Julian Vane', avatarColors: [Color(0xFFE50914), Color(0xFF1F2229)], initials: 'JV'),
     CastMember(name: 'Elena Thorne', avatarColors: [Color(0xFF00E5FF), Color(0xFF1F2229)], initials: 'ET'),
@@ -313,7 +410,6 @@ class AppState extends ChangeNotifier {
     CastMember(name: 'Sia Chen', avatarColors: [Color(0xFFFF007F), Color(0xFF1F2229)], initials: 'SC'),
   ];
 
-  // Smart Downloads Toggle
   bool _smartDownloadsEnabled = true;
   bool get smartDownloadsEnabled => _smartDownloadsEnabled;
 

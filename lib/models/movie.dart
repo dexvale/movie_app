@@ -32,6 +32,8 @@ class Movie {
   final List<Color> posterColors;
   final bool hasPlayIcon;
   final String? timeRemaining;
+  final String? posterPath;
+  final String? backdropPath;
   
   // Dynamic state
   bool isInWatchlist;
@@ -56,6 +58,8 @@ class Movie {
     this.downloadState = DownloadState.notDownloaded,
     this.downloadProgress = 0.0,
     this.downloadSize = '',
+    this.posterPath,
+    this.backdropPath,
   });
 
   Movie copyWith({
@@ -81,6 +85,8 @@ class Movie {
       downloadState: downloadState ?? this.downloadState,
       downloadProgress: downloadProgress ?? this.downloadProgress,
       downloadSize: downloadSize ?? this.downloadSize,
+      posterPath: posterPath,
+      backdropPath: backdropPath,
     );
   }
 }

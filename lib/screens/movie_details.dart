@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../state/app_state.dart';
+import '../services/api_service.dart';
 import 'home_dashboard.dart'; // For PosterDetailPainter
 
 class MovieDetails extends StatelessWidget {
@@ -309,33 +310,56 @@ class MovieDetails extends StatelessWidget {
   }
 
   Widget _buildBackdrop(BuildContext context, Movie movie) {
+    final String? backdrop = movie.backdropPath;
+
     return Container(
       height: 330,
       width: double.infinity,
       child: Stack(
         children: [
-          // Cyberpunk spires or gradient backdrop details
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    movie.posterColors.last.withOpacity(0.6),
-                    const Color(0xFF0B0C10),
-                  ],
+          // Backdrop Image or Gradient
+          if (backdrop != null)
+            Positioned.fill(
+              child: Image.network(
+                '${ApiService.imageBaseUrlUrlOriginal}$backdrop',
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        movie.posterColors.last.withOpacity(0.6),
+                        const Color(0xFF0B0C10),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      movie.posterColors.last.withOpacity(0.6),
+                      const Color(0xFF0B0C10),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // Custom visual shapes
-          Positioned.fill(
-            child: CustomPaint(
-              painter: BackdropVisualPainter(movie.id),
+          // Custom visual shapes (only if backdrop is null)
+          if (backdrop == null)
+            Positioned.fill(
+              child: CustomPaint(
+                painter: BackdropVisualPainter(movie.id),
+              ),
             ),
-          ),
 
           // Smooth Vertical Fade out at bottom 15%
           Positioned(
@@ -408,14 +432,15 @@ class MovieDetails extends StatelessWidget {
   }
 
   Widget _buildCastList() {
+    final castList = state.activeCast;
     return Container(
       height: 90,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: state.cast.length,
+        itemCount: castList.length,
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
-          final member = state.cast[index];
+          final member = castList[index];
           return Container(
             margin: const EdgeInsets.only(right: 20),
             width: 60,
@@ -469,17 +494,19 @@ class MovieDetails extends StatelessWidget {
   }
 
   Widget _buildRecommendedList() {
-    // Show Neo Tokyo & Void Walker
-    final recommended = state.movies.where((m) => m.id == 'neo_tokyo' || m.id == 'void_walker').toList();
+    // Show fetched recommendations if present, otherwise default to mock movies
+    final list = state.recommendations.isNotEmpty 
+        ? state.recommendations 
+        : state.movies.where((m) => m.id == 'neo_tokyo' || m.id == 'void_walker').toList();
 
     return Container(
       height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: recommended.length,
+        itemCount: list.length,
         physics: const BouncingScrollPhysics(),
         itemBuilder: (context, index) {
-          final movie = recommended[index];
+          final movie = list[index];
           return Container(
             width: 130,
             margin: const EdgeInsets.only(right: 12),
@@ -495,20 +522,40 @@ class MovieDetails extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       child: Stack(
                         children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: movie.posterColors,
+                          if (movie.posterPath != null)
+                            Positioned.fill(
+                              child: Image.network(
+                                '${ApiService.imageBaseUrlUrl500}${movie.posterPath}',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: movie.posterColors,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: movie.posterColors,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: PosterDetailPainter(movie.id),
+                          if (movie.posterPath == null)
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: PosterDetailPainter(movie.id),
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
