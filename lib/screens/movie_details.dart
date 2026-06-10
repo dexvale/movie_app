@@ -3,6 +3,8 @@ import '../models/movie.dart';
 import '../state/app_state.dart';
 import '../services/api_service.dart';
 import 'home_dashboard.dart'; // For PosterDetailPainter
+import 'video_player.dart';
+
 
 class MovieDetails extends StatelessWidget {
   final AppState state;
@@ -132,15 +134,10 @@ class MovieDetails extends StatelessWidget {
                       // PLAY BUTTON (Full width, crimson)
                       InkWell(
                         onTap: () {
-                          // Show play snackbar or screen overlay simulation
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: const Color(0xFFE50914),
-                              content: Text(
-                                'Playing "${movie.title}" in Ultra HD...',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                              duration: const Duration(seconds: 2),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VideoPlayerScreen(movie: movie),
                             ),
                           );
                         },

@@ -5,12 +5,15 @@ import '../models/movie.dart';
 
 class ApiService {
   // CONFIGURATION: Insert your TMDB credentials here
-  static const String apiKey = ''; // Insert your API Key (v3) here
-  static const String readAccessToken = ''; // OR insert your API Read Access Token (v4) here
+  static const String apiKey =
+      'f29df1031c96f8fb124bb4c0ae20d29b'; // Insert your API Key (v3) here
+  static const String readAccessToken =
+      'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmMjlkZjEwMzFjOTZmOGZiMTI0YmI0YzBhZTIwZDI5YiIsIm5iZiI6MTc4MTA3MDMyNS4wMTYsInN1YiI6IjZhMjhmOWY1YWExN2ZkMzg5Mjg5NjJiNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.pnoMPtqROs0I0c0-D9fZKRrmQUKNbaXsfRzLNbCA7ko'; // OR insert your API Read Access Token (v4) here
 
   static const String _baseUrl = 'https://api.themoviedb.org/3';
   static const String imageBaseUrlUrl500 = 'https://image.tmdb.org/t/p/w500';
-  static const String imageBaseUrlUrlOriginal = 'https://image.tmdb.org/t/p/original';
+  static const String imageBaseUrlUrlOriginal =
+      'https://image.tmdb.org/t/p/original';
 
   Map<String, String> get _headers {
     final Map<String, String> headers = {
@@ -24,7 +27,7 @@ class ApiService {
 
   String _getUrl(String path, {Map<String, String>? queryParams}) {
     String url = '$_baseUrl$path';
-    
+
     // Fallback: If no bearer token, use query parameter api_key
     if (readAccessToken.isEmpty && apiKey.isNotEmpty) {
       url += '${path.contains('?') ? '&' : '?'}api_key=$apiKey';
@@ -41,7 +44,7 @@ class ApiService {
   // 1. Fetch Now Playing (for Screen 1 Hero Banner)
   Future<Movie?> fetchHeroMovie() async {
     if (apiKey.isEmpty && readAccessToken.isEmpty) return null;
-    
+
     try {
       final response = await http.get(
         Uri.parse(_getUrl('/movie/now_playing', queryParams: {'page': '1'})),
@@ -52,7 +55,10 @@ class ApiService {
         final Map<String, dynamic> data = json.decode(response.body);
         final List results = data['results'] ?? [];
         if (results.isNotEmpty) {
-          return _mapJsonToMovie(results.first, customGenres: 'SCI-FI • CYBERPUNK');
+          return _mapJsonToMovie(
+            results.first,
+            customGenres: 'SCI-FI • CYBERPUNK',
+          );
         }
       }
     } catch (e) {
@@ -64,7 +70,7 @@ class ApiService {
   // 2. Fetch Popular Movies (for Screen 1 Popular Carousel)
   Future<List<Movie>> fetchPopularMovies() async {
     if (apiKey.isEmpty && readAccessToken.isEmpty) return [];
-    
+
     try {
       final response = await http.get(
         Uri.parse(_getUrl('/movie/popular', queryParams: {'page': '1'})),
@@ -86,13 +92,15 @@ class ApiService {
   Future<List<Movie>> searchMovies(String query) async {
     if (apiKey.isEmpty && readAccessToken.isEmpty) return [];
     if (query.trim().isEmpty) return [];
-    
+
     try {
       final response = await http.get(
-        Uri.parse(_getUrl('/search/movie', queryParams: {
-          'query': Uri.encodeComponent(query),
-          'page': '1'
-        })),
+        Uri.parse(
+          _getUrl(
+            '/search/movie',
+            queryParams: {'query': Uri.encodeComponent(query), 'page': '1'},
+          ),
+        ),
         headers: _headers,
       );
 
@@ -110,7 +118,7 @@ class ApiService {
   // 4. Fetch Cast (for Screen 3 Movie Details Credits)
   Future<List<CastMember>> fetchCastMembers(String movieId) async {
     if (apiKey.isEmpty && readAccessToken.isEmpty) return [];
-    
+
     try {
       final response = await http.get(
         Uri.parse(_getUrl('/movie/$movieId/credits')),
@@ -120,25 +128,32 @@ class ApiService {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         final List castList = data['cast'] ?? [];
-        
+
         // Take first 4-5 cast members
         final int limit = castList.length > 5 ? 5 : castList.length;
         final List<CastMember> members = [];
-        
+
         for (int i = 0; i < limit; i++) {
           final item = castList[i];
           final String name = item['name'] ?? 'Actor';
-          final String initials = name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').join();
-          
-          members.add(CastMember(
-            name: name,
-            initials: initials.length > 2 ? initials.substring(0, 2) : initials,
-            // Generate distinct procedural gradient colors based on length
-            avatarColors: [
-              _getColorForIndex(name.length),
-              _getColorForIndex(name.length + 3),
-            ],
-          ));
+          final String initials = name
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .join();
+
+          members.add(
+            CastMember(
+              name: name,
+              initials: initials.length > 2
+                  ? initials.substring(0, 2)
+                  : initials,
+              // Generate distinct procedural gradient colors based on length
+              avatarColors: [
+                _getColorForIndex(name.length),
+                _getColorForIndex(name.length + 3),
+              ],
+            ),
+          );
         }
         return members;
       }
@@ -151,10 +166,15 @@ class ApiService {
   // 5. Fetch Recommended Movies (for Screen 3 Bottom Carousel)
   Future<List<Movie>> fetchRecommendations(String movieId) async {
     if (apiKey.isEmpty && readAccessToken.isEmpty) return [];
-    
+
     try {
       final response = await http.get(
-        Uri.parse(_getUrl('/movie/$movieId/recommendations', queryParams: {'page': '1'})),
+        Uri.parse(
+          _getUrl(
+            '/movie/$movieId/recommendations',
+            queryParams: {'page': '1'},
+          ),
+        ),
         headers: _headers,
       );
 
@@ -191,13 +211,14 @@ class ApiService {
     }
 
     final String title = json['title'] ?? 'Unknown Movie';
-    
+
     return Movie(
       id: json['id'].toString(),
       title: title,
       rating: double.parse(rating.toStringAsFixed(1)),
       year: year.isEmpty ? '2024' : year,
-      runtime: '2h 14m', // Default filler since details endpoint is required for this
+      runtime:
+          '2h 14m', // Default filler since details endpoint is required for this
       ageRating: json['adult'] == true ? '18+' : 'PG-13',
       qualityBadge: rating >= 8.0 ? '4K HDR' : 'HDR',
       genres: genreString,

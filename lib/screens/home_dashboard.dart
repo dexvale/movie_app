@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../state/app_state.dart';
 import '../services/api_service.dart';
+import 'video_player.dart';
+
 
 class HomeDashboard extends StatelessWidget {
   final AppState state;
@@ -255,7 +257,12 @@ class HomeDashboard extends StatelessWidget {
                       child: InkWell(
                         onTap: () {
                           state.selectMovie(heroMovie.id);
-                          onNavigateToDetails();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VideoPlayerScreen(movie: heroMovie),
+                            ),
+                          );
                         },
                         child: Container(
                           height: 48,
